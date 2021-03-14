@@ -1,3 +1,7 @@
+# Brian Baez
+# Project 2: Raw Power
+# CS 424 - UIC Spring 2021
+
 library(shiny)
 library(shinydashboard)
 library(readxl)
@@ -11,7 +15,7 @@ library(ggplot2)
 ################################################################################
 
 # read PLNT18 tab from egrid2018_data_v2.xlsx file
-dataPLNT18 <- read_excel("Data/egrid2018_data_v2.xlsx", "PLNT18")
+dataPLNT18 <- read_excel("egrid2018_data_v2.xlsx", "PLNT18")
 
 # select the columns needed
 dataPLNT18 <- select(dataPLNT18, 3, 4, 25, 20, 21, 108:118)
@@ -105,7 +109,7 @@ dataPLNT18$NON_RENEWABLE_PER <- (dataPLNT18$TOTAL_NON_RENEWABLE / dataPLNT18$TOT
 ################################################################################
 
 # read EGRDPLNT00 from eGRID2000_plant.xls file
-dataPLNT00 <- read_excel("Data/eGRID2000_plant.xls", "EGRDPLNT00")
+dataPLNT00 <- read_excel("eGRID2000_plant.xls", "EGRDPLNT00")
 
 # select the columns needed
 dataPLNT00 <- select(dataPLNT00, 3, 4, 29, 24, 25, 69:78)
@@ -153,6 +157,9 @@ dataPLNT00$OTHER <- as.numeric(dataPLNT00$OTHER)
 # make latitude and longitude values numeric
 dataPLNT00$LAT <- as.numeric(dataPLNT00$LAT)
 dataPLNT00$LONG <- as.numeric(dataPLNT00$LONG)
+
+# make longitude values negative
+dataPLNT00$LONG <- -dataPLNT00$LONG
 
 # rename values in type column
 dataPLNT00$TYPE <- gsub("NG", "GAS", dataPLNT00$TYPE)
@@ -232,7 +239,7 @@ dataPLNT00$NON_RENEWABLE_PER <- (dataPLNT00$TOTAL_NON_RENEWABLE / dataPLNT00$TOT
 ################################################################################
 
 # read PLNT10 from eGRID2010_Data.xls file
-dataPLNT10 <- read_excel("Data/eGRID2010_Data.xls", "PLNT10")
+dataPLNT10 <- read_excel("eGRID2010_Data.xls", "PLNT10")
 
 # select the columns needed
 dataPLNT10 <- select(dataPLNT10, 2, 3, 30, 21, 22, 82:92)
@@ -324,14 +331,31 @@ dataPLNT10$NON_RENEWABLE_PER <- (dataPLNT10$TOTAL_NON_RENEWABLE / dataPLNT10$TOT
 # VALUES NEEDED FOR APPLICATION
 ################################################################################
 
+# subsets for illinois data
+dataIllinois18 <- subset(dataPLNT18, dataPLNT18$STATE == "IL")
+dataIllinois00 <- subset(dataPLNT00, dataPLNT00$STATE == "IL")
+dataIllinois10 <- subset(dataPLNT10, dataPLNT10$STATE == "IL")
+
+# since original data is too large to display, only getting samples of 500
+sampleDataPLNT00 <- sample_n(dataPLNT00, 500)
+sampleDataPLNT10 <- sample_n(dataPLNT10, 500)
+sampleDataPLNT18 <- sample_n(dataPLNT18, 500)
+
 sources <- c("Coal", "Biomass", "Hydro", "Geothermal","Natural Gas",
              "Nuclear", "Oil", "Other", "Solar", "Wind")
+
+sourceNames <- c("COAL", "BIO", "HYDRO", "GEO","GAS",
+             "NUCLEAR", "OIL", "OTHER", "SOLAR", "WIND")
+
+sourcesColors <- c("black", "lightgreen", "lightblue", "gray", "white",
+                   "purple", "red", "orange", "green", "darkblue")
 
 ################################################################################
 # UI
 ################################################################################
 
 ui <- dashboardPage(
+  skin="green",
   dashboardHeader(title="CS 424 Project 2"),
   dashboardSidebar(
     sidebarMenu(
@@ -344,28 +368,58 @@ ui <- dashboardPage(
   dashboardBody(
     tabItems(
       tabItem(tabName = "illinoisPage",
-              box(title = "Select the energy sources you would like to see:", solidHeader = TRUE, width = 3,
-                                  
+                box(title="Locations of Power Plants in Illinois in 2018", solidHeader = TRUE,
+                    leafletOutput("illinoisMap18", height = 550, width = 800), width = 9
+                ), # end box with map
+              
+                box(title = "Select the energy sources you would like to see:", solidHeader = TRUE, width = 3,
+                  
                   checkboxInput("selectAll", label="Select/Deselect All", value = TRUE),
                   
                   checkboxInput("renewableChoice", label="Renewables", value = TRUE),
                   
                   checkboxInput("nonRenewableChoice", label="Non-Renewables", value = TRUE),
-                                
+                  
                   checkboxGroupInput("sourcesChoice", label=NULL, inline=FALSE, 
-                      choices = sources)
-                ), # end box with choice selections
+                                     choices = sources)
+              ) # end box with choice selections
+      ), # end illinois 2018 page
+      
+      tabItem(tabName = "statePage",
+              box(title = "Illinois Power Plants in 2000", solidHeader = TRUE,
+                  width = 6,
+                  leafletOutput("illinoisMap00", height = 500, width = 500)
+              ),
               
-                box(title="Locations of Power Plants in Illinois", solidHeader = TRUE,
-                    leafletOutput("illinoisMap")
-                ) # end box with map
-      ),
+              box(title = "Illinois Power Plants in 2010", solidHeader = TRUE,
+                  width = 6,
+                  leafletOutput("illinoisMap10", height = 500, width = 500)
+              )
+              
+      ), # end illinois 2000 and illinois 2010 comparison page
+      
+      tabItem(tabName = "usPage",
+              box(title = "U.S. Power Plants", solidHeader = TRUE,
+                  tabBox(selected="2000",
+                         tabPanel("2000",
+                                leafletOutput("usMap00", height = 500, width = 1000)  
+                          ),
+                         tabPanel("2010",
+                                  leafletOutput("usMap10", height = 500, width = 1000)
+                          ),
+                         tabPanel("2018",
+                                  leafletOutput("usMap18", height = 500, width = 1000)  
+                          )
+                  ), width = 12
+              )
+      ), # end us 2000, 2010, and 2018 page
+      
       tabItem(tabName = "aboutPage",
-        box(title = "About the Dataset", solidHeader = TRUE, HTML("ABOUT PAGE")),
-        box(title = "About the Application", solidHeader = TRUE, HTML("Created by Brian Baez"))
-      )
-    ) 
-  ) # end tabItems
+              box(title = "Application created by Brian Baez", solidHeader = TRUE,
+                  HTML("The data used for this application was acquired from https://www.epa.gov/egrid/download-data"))
+      ) # end about page
+    ) # end tabItems
+  ) 
 )
 
 ################################################################################
@@ -393,28 +447,77 @@ server <- function(input, output, session) {
                             choices = sources,
                             selected = if(input$selectAll) sources)
   })
-
-  #observe({
-    #updateCheckboxGroupInput(session, "sourcesChoice",
-                             #choices = sources,
-                             #selected = if(input$renewableChoice) c("Hydro", "Biomass", "Wind", "Solar", "Geothermal"))
-  #})
   
-  #observe({
-    #updateCheckboxGroupInput(session, "sourcesChoice",
-                            #choices = sources,
-                            #selected = if(input$nonRenewableChoice) c("Coal", "Oil", "Natural Gas", "Nuclear", "Other"))
-  #})
-
-  #observeEvent()
+  # renders map for Illinois in 2018
+  output$illinoisMap18 <- renderLeaflet({
+    leaflet(dataIllinois18) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addResetMapButton() %>%
+      addMarkers(lng = dataIllinois18$LONG, 
+                 lat = dataIllinois18$LAT,
+                 label = dataIllinois18$TYPE,
+                 popup = dataIllinois18$NAME
+      )
+  })
   
-  output$illinoisMap <- renderLeaflet({
-    illinois <- leaflet()
-    illinois <- addProviderTiles(illinois, providers$CartoDB.Positron)
-    illinois <- addResetMapButton(illinois)
-    illinois <- addMarkers(illinois, lng = subset(dataPLNT18, dataPLNT18$STATE == "IL")$LONG,
-                           lat = subset(dataPLNT18, dataPLNT18$STATE == "IL")$LAT)
-    
+  # renders map for Illinois in 2000
+  output$illinoisMap00 <- renderLeaflet({
+    leaflet(dataIllinois00) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addResetMapButton() %>%
+      addMarkers(lng = dataIllinois00$LONG, 
+                        lat = dataIllinois00$LAT,
+                        label = dataIllinois00$TYPE,
+                        popup = dataIllinois00$NAME
+      )
+  })
+  
+  # renders map for Illinois in 2010
+  output$illinoisMap10 <- renderLeaflet({
+    leaflet(dataIllinois10) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addResetMapButton() %>%
+      addMarkers(lng = dataIllinois10$LONG, 
+                        lat = dataIllinois10$LAT,
+                        label = dataIllinois10$TYPE,
+                        popup = dataIllinois10$NAME
+      )
+  })
+  
+  # renders map for US in 2000
+  output$usMap00 <- renderLeaflet({
+    leaflet(sampleDataPLNT00) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addResetMapButton() %>%
+      addMarkers(lng = sampleDataPLNT00$LONG, 
+                 lat = sampleDataPLNT00$LAT,
+                 label = sampleDataPLNT00$TYPE,
+                 popup = sampleDataPLNT00$NAME
+      )
+  })
+  
+  # renders map for US in 2010
+  output$usMap10 <- renderLeaflet({
+    leaflet(sampleDataPLNT10) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addResetMapButton() %>%
+      addMarkers(lng = sampleDataPLNT10$LONG, 
+                 lat = sampleDataPLNT10$LAT,
+                 label = sampleDataPLNT10$TYPE,
+                 popup = sampleDataPLNT10$NAME
+      )
+  })
+  
+  # renders map for US in 2018
+  output$usMap18 <- renderLeaflet({
+    leaflet(sampleDataPLNT18) %>%
+      addProviderTiles(providers$CartoDB.Positron) %>%
+      addResetMapButton() %>%
+      addMarkers(lng = sampleDataPLNT18$LONG, 
+                 lat = sampleDataPLNT18$LAT,
+                 label = sampleDataPLNT18$TYPE,
+                 popup = sampleDataPLNT18$NAME
+      )
   })
   
 }
